@@ -1,0 +1,337 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------
+// ENUMS
+// --------------------------------------
+
+enum Role {
+  CLIENT
+  LANDLORD
+  AGENT
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  SHOP
+  OFFICE
+  LAND
+  WAREHOUSE
+  COMMERCIAL
+  INDUSTRIAL
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RENTED
+  UNDER_MAINTENANCE
+  UNAVAILABLE
+}
+
+enum ListingType {
+  FOR_RENT
+  FOR_SALE
+}
+
+enum ComplaintStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+// --------------------------------------
+// CORE MODELS
+// --------------------------------------
+
+/// Represents all users in the system, distinguished by their role.
+model User {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  password           String // Should be a hashed password
+  firstName          String
+  lastName           String
+  phone              String?            @unique
+  avatarUrl          String?
+  role               Role               @default(CLIENT)
+  isEmailVerified    Boolean            @default(false)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+
+  // --- Relationships ---
+  // A Landlord/Agent can post multiple properties
+  propertiesPosted Property[] @relation("PropertiesPosted")
+  // An Agent can manage multiple properties
+  propertiesManaged Property[] @relation("PropertiesManaged")
+  // A Client can leave multiple ratings
+  ratings            Rating[]
+  // A Client can file multiple complaints
+  complaints         Complaint[]
+  // A Client can favorite multiple properties
+  favorites          Favorite[]
+  // Each user has one set of verification documents
+  verificationInfo   UserVerification?
+  // Agent-specific profile
+  agentProfile       AgentProfile?
+  // Sessions for authentication
+  sessions           Session[]
+
+  /// For Agents: list of Landlords they represent
+  landlordsRepresented LandlordAgent[] @relation("AgentLink")
+  /// For Landlords: list of Agents representing them
+  agents               LandlordAgent[] @relation("LandlordLink")
+}
+
+/// Stores sensitive verification information for all user roles.
+model UserVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    VerificationStatus @default(PENDING)
+
+  // Common for all users
+  nin               String   @unique @doc("National Identification Number")
+  idCardFrontUrl    String?
+  idCardBackUrl     String?
+  proofOfAddressUrl String?  @doc("URL to a utility bill or similar document")
+
+  // Landlord specific
+  proofOfOwnershipUrls String[] @doc("URLs to property ownership documents like C of O")
+  taxIdNumber          String?
+
+  // Agent specific
+  agentLicenseNumber String? @doc("Official license number of the real estate agent")
+  agentLicenseUrl    String? @doc("URL to the agent's license document")
+
+  statusReason String?   @doc("Reason provided by an admin for PENDING or REJECTED status")
+  submittedAt  DateTime  @default(now())
+  reviewedAt   DateTime?
+}
+
+/// Extended profile information specific to Agents.
+model AgentProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio            String?  @db.Text
+  experience     Int?     @doc("Years of experience")
+  specialties    String[]
+  languages      String[]
+  websiteUrl     String?
+  certifications String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Join table to link Landlords and the Agents that represent them.
+model LandlordAgent {
+  id         String @id @default(cuid())
+  landlordId String
+  agentId    String
+
+  landlord User @relation("LandlordLink", fields: [landlordId], references: [id], onDelete: Cascade)
+  agent    User @relation("AgentLink", fields: [agentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([landlordId, agentId])
+  @@index([landlordId])
+  @@index([agentId])
+}
+
+
+/// Represents a single property for rent or sale.
+model Property {
+  id          String         @id @default(cuid())
+  title       String
+  description String         @db.Text
+  type        PropertyType
+  listingType ListingType
+  status      PropertyStatus @default(AVAILABLE)
+
+  // Pricing
+  price    Decimal  @db.Decimal(12, 2)
+  currency String   @default("NGN")
+
+  // Location
+  address   String
+  city      String
+  state     String
+  zipCode   String?
+  latitude  Float?
+  longitude Float?
+
+  // Details
+  bedrooms  Int?
+  bathrooms Int?
+  area      Float?   @doc("Area in square meters")
+  yearBuilt Int?
+
+  // Media and Features
+  imageUrls String[]
+  videoUrls String[]
+  amenities String[] @doc("List of features like 'Swimming Pool', '24/7 Power', etc.")
+
+  isFeatured Boolean @default(false)
+
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  availableFrom DateTime?
+
+  // --- Relationships ---
+  postedById String
+  postedBy   User   @relation("PropertiesPosted", fields: [postedById], references: [id], onDelete:Cascade)
+
+  managedByAgentId String?
+  managedByAgent   User?   @relation("PropertiesManaged", fields: [managedByAgentId], references: [id], onDelete: SetNull)
+
+  ratings     Rating[]
+  complaints  Complaint[]
+  views       PropertyView[]
+  favoritedBy Favorite[]
+
+  // --- Indexes for performance ---
+  @@index([postedById])
+  @@index([managedByAgentId])
+  @@index([type, listingType, status, city, state])
+  @@index([price])
+}
+
+/// Tracks views on a property, including anonymous ones.
+model PropertyView {
+  id        String   @id @default(cuid())
+  propertyId String
+  userId     String?  @doc("Null for anonymous views")
+  viewedAt   DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([userId])
+}
+
+/// Marks a property as a favorite for a registered user.
+model Favorite {
+  id         String   @id @default(cuid())
+  propertyId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, userId])
+  @@index([propertyId])
+  @@index([userId])
+}
+
+
+/// Represents a rating and comment left by a registered client for a property.
+model Rating {
+  id         String   @id @default(cuid())
+  rating     Int      @doc("Rating from 1 to 5")
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, clientId], name: "unique_rating_per_user_property")
+  @@index([propertyId])
+  @@index([clientId])
+}
+
+/// Represents a complaint filed by a registered client.
+model Complaint {
+  id          String          @id @default(cuid())
+  subject     String
+  description String          @db.Text
+  status      ComplaintStatus @default(PENDING)
+  imageUrls   String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relationships ---
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  clientId String
+  client   User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // --- Resolution ---
+  resolvedAt  DateTime?
+  resolvedBy  String?   @doc("Admin ID who resolved it")
+  resolutionNotes String? @db.Text
+
+  @@index([propertyId])
+  @@index([clientId])
+  @@index([status])
+}
+
+
+// --------------------------------------
+// AUTHENTICATION MODELS
+// --------------------------------------
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
