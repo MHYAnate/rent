@@ -1,12 +1,14 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../prismaClient";
+import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const router = express.Router();
+
+const prisma = new PrismaClient();
 
 router.post("/register", async (req, res) => {
   const { email, password } = req.body;      

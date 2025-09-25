@@ -6,12 +6,12 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // --------------------------------------
@@ -115,20 +115,26 @@ model UserVerification {
   status    VerificationStatus @default(PENDING)
 
   // Common for all users
-  nin               String   @unique @doc("National Identification Number")
+  /// National Identification Number
+  nin               String   @unique
   idCardFrontUrl    String?
   idCardBackUrl     String?
-  proofOfAddressUrl String?  @doc("URL to a utility bill or similar document")
+  /// URL to a utility bill or similar document
+  proofOfAddressUrl String?
 
   // Landlord specific
-  proofOfOwnershipUrls String[] @doc("URLs to property ownership documents like C of O")
+  /// URLs to property ownership documents like C of O
+  proofOfOwnershipUrls String[]
   taxIdNumber          String?
 
   // Agent specific
-  agentLicenseNumber String? @doc("Official license number of the real estate agent")
-  agentLicenseUrl    String? @doc("URL to the agent's license document")
+  /// Official license number of the real estate agent
+  agentLicenseNumber String?
+  /// URL to the agent's license document
+  agentLicenseUrl    String?
 
-  statusReason String?   @doc("Reason provided by an admin for PENDING or REJECTED status")
+  /// Reason provided by an admin for PENDING or REJECTED status
+  statusReason String?
   submittedAt  DateTime  @default(now())
   reviewedAt   DateTime?
 }
@@ -139,7 +145,8 @@ model AgentProfile {
   userId         String   @unique
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio            String?  @db.Text
-  experience     Int?     @doc("Years of experience")
+  /// Years of experience
+  experience     Int?
   specialties    String[]
   languages      String[]
   websiteUrl     String?
@@ -190,13 +197,15 @@ model Property {
   // Details
   bedrooms  Int?
   bathrooms Int?
-  area      Float?   @doc("Area in square meters")
+  /// Area in square meters
+  area      Float?
   yearBuilt Int?
 
   // Media and Features
   imageUrls String[]
   videoUrls String[]
-  amenities String[] @doc("List of features like 'Swimming Pool', '24/7 Power', etc.")
+  /// List of features like 'Swimming Pool', '24/7 Power', etc.
+  amenities String[]
 
   isFeatured Boolean @default(false)
 
@@ -228,7 +237,8 @@ model Property {
 model PropertyView {
   id        String   @id @default(cuid())
   propertyId String
-  userId     String?  @doc("Null for anonymous views")
+  /// Null for anonymous views
+  userId     String?
   viewedAt   DateTime @default(now())
   ipAddress  String?
   userAgent  String?
@@ -258,7 +268,8 @@ model Favorite {
 /// Represents a rating and comment left by a registered client for a property.
 model Rating {
   id         String   @id @default(cuid())
-  rating     Int      @doc("Rating from 1 to 5")
+  /// Rating from 1 to 5
+  rating     Int
   comment    String?  @db.Text
   createdAt  DateTime @default(now())
 
@@ -293,7 +304,8 @@ model Complaint {
 
   // --- Resolution ---
   resolvedAt  DateTime?
-  resolvedBy  String?   @doc("Admin ID who resolved it")
+  /// Admin ID who resolved it
+  resolvedBy  String?
   resolutionNotes String? @db.Text
 
   @@index([propertyId])
@@ -334,4 +346,3 @@ model PasswordResetToken {
 
   @@unique([email, token])
 }
-
