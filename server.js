@@ -1,5 +1,5 @@
 import express from "express";
-import auhtRoutes from "../src/routes/authRoutes.js";
+import auhtRoutes from "./src/routes/authRoutes.js";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
