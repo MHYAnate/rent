@@ -1,22 +1,155 @@
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
 
-dotenv.config();
+const prisma = new PrismaClient();
 
-export const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; 
-  if (!token) return res.sendStatus(401).json({ message: "No token provided" });
+// Standard auth middleware - requires authentication
+export const authMiddleware = async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {  
-    if (err) return res.sendStatus(403).json({ message: "Invalid token" });
-    req.userId = decoded.id;
-    next();
-  });
-  // Fetch user from your database and compare passwords here
-  // If valid, generate JWT token and send it back
-  res.status(200).json({ message: "Login successful" });
-}
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: "Access token is required"
+            });
+        }
 
+        // Verify JWT token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-export default authMiddleware;
+        // Check if session exists in database
+        const session = await prisma.session.findFirst({
+            where: {
+                token,
+                userId: decoded.id,
+                expiresAt: {
+                    gt: new Date()
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        role: true,
+                        isEmailVerified: true,
+                        verificationStatus: true
+                    }
+                }
+            }
+        });
+
+        if (!session) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid or expired token"
+            });
+        }
+
+        // Add user info to request object
+        req.userId = session.user.id;
+        req.userRole = session.user.role;
+        req.user = session.user;
+
+        next();
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid token"
+            });
+        } else if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                message: "Token expired"
+            });
+        } else {
+            console.error("Auth middleware error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Server error during authentication"
+            });
+        }
+    }
+};
+
+// Optional auth middleware - doesn't require authentication but adds user info if present
+export const optionalAuthMiddleware = async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) {
+            return next(); // Continue without auth info
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        const session = await prisma.session.findFirst({
+            where: {
+                token,
+                userId: decoded.id,
+                expiresAt: {
+                    gt: new Date()
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        role: true,
+                        isEmailVerified: true,
+                        verificationStatus: true
+                    }
+                }
+            }
+        });
+
+        if (session) {
+            req.userId = session.user.id;
+            req.userRole = session.user.role;
+            req.user = session.user;
+        }
+
+        next();
+    } catch (error) {
+        // In optional auth, we continue even if token is invalid
+        next();
+    }
+};
+
+// Role-based middleware
+export const requireRole = (roles) => {
+    return (req, res, next) => {
+        if (!req.userRole) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required"
+            });
+        }
+
+        const allowedRoles = Array.isArray(roles) ? roles : [roles];
+        
+        if (!allowedRoles.includes(req.userRole)) {
+            return res.status(403).json({
+                success: false,
+                message: "Insufficient permissions"
+            });
+        }
+
+        next();
+    };
+};
+
+// Admin only middleware
+export const adminOnly = requireRole(['ADMIN']);
+
+// Landlord and Agent middleware
+export const landlordOrAgent = requireRole(['LANDLORD', 'AGENT', 'ADMIN']);
