@@ -69,11 +69,11 @@ enum ComplaintStatus {
 /// Represents all users in the system, distinguished by their role.
 model User {
   id                 String             @id @default(cuid())
-  email              String             @unique
+  email              String?             @unique
   password           String // Should be a hashed password
   firstName          String
   lastName           String
-  phone              String?            @unique
+  phone              String            @unique
   avatarUrl          String?
   role               Role               @default(CLIENT)
   isEmailVerified    Boolean            @default(false)

@@ -8,22 +8,39 @@ const JWT_EXPIRATION = '7d';
 // Register new user
 export const register = async (req, res) => {
     try {
+        // const {
+        //     email,
+        //     password,
+        //     firstName,
+        //     lastName,
+        //     phone,
+        //     role = 'CLIENT'
+        // } = req.body;
+
         const {
-            email,
+            phone,      // CHANGED: Primary identifier is now phone
             password,
             firstName,
             lastName,
-            phone,
+            email,      // email is now optional
             role = 'CLIENT'
         } = req.body;
 
         // Validation
-        if (!email || !password || !firstName || !lastName) {
+        // if (!email || !password || !firstName || !lastName) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "Please provide email, password, first name, and last name"
+        //     });
+        // }
+
+        if (!phone || !password || !firstName || !lastName) {
             return res.status(400).json({
                 success: false,
-                message: "Please provide email, password, first name, and last name"
+                message: "Please provide phone number, password, first name, and last name"
             });
         }
+
 
         if (password.length < 6) {
             return res.status(400).json({
@@ -33,11 +50,27 @@ export const register = async (req, res) => {
         }
 
         // Check if user exists
+        // const existingUser = await prisma.user.findFirst({
+        //     where: {
+        //         OR: [
+        //             { email },
+        //             ...(phone ? [{ phone }] : [])
+        //         ]
+        //     }
+        // });
+
+        // if (existingUser) {
+        //     return res.status(409).json({
+        //         success: false,
+        //         message: existingUser.email === email ? "Email is already in use" : "Phone number is already in use"
+        //     });
+        // }
+
         const existingUser = await prisma.user.findFirst({
             where: {
                 OR: [
-                    { email },
-                    ...(phone ? [{ phone }] : [])
+                    { phone },
+                    ...(email ? [{ email }] : []) // check for email only if it's provided
                 ]
             }
         });
@@ -45,7 +78,8 @@ export const register = async (req, res) => {
         if (existingUser) {
             return res.status(409).json({
                 success: false,
-                message: existingUser.email === email ? "Email is already in use" : "Phone number is already in use"
+                // MODIFIED: More specific error message
+                message: existingUser.phone === phone ? "Phone number is already in use" : "Email is already in use"
             });
         }
 
@@ -53,26 +87,47 @@ export const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         // Create user
+        // const newUser = await prisma.user.create({
+        //     data: {
+        //         email,
+        //         password: hashedPassword,
+        //         firstName,
+        //         lastName,
+        //         phone: phone || null,
+        //         role: ['CLIENT', 'LANDLORD', 'AGENT'].includes(role) ? role : 'CLIENT'
+        //     },
+        //     select: {
+        //         id: true,
+        //         email: true,
+        //         firstName: true,
+        //         lastName: true,
+        //         role: true,
+        //         isEmailVerified: true,
+        //         verificationStatus: true,
+        //         createdAt: true
+        //     }
+        // });
+
         const newUser = await prisma.user.create({
             data: {
-                email,
+                phone, // CHANGED
                 password: hashedPassword,
                 firstName,
                 lastName,
-                phone: phone || null,
+                email: email || null, // email is stored as null if not provided
                 role: ['CLIENT', 'LANDLORD', 'AGENT'].includes(role) ? role : 'CLIENT'
             },
             select: {
                 id: true,
                 email: true,
+                phone: true,
                 firstName: true,
                 lastName: true,
                 role: true,
-                isEmailVerified: true,
-                verificationStatus: true,
                 createdAt: true
             }
         });
+
 
         res.status(201).json({
             success: true,
@@ -92,27 +147,48 @@ export const register = async (req, res) => {
 // Login user
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        // const { email, password } = req.body;
 
-        if (!email || !password) {
+        // if (!email || !password) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "Please provide both email and password"
+        //     });
+        // }
+        const { phone, password } = req.body; // CHANGED from email to phone
+
+        if (!phone || !password) {
             return res.status(400).json({
                 success: false,
-                message: "Please provide both email and password"
+                message: "Please provide both phone number and password" // CHANGED
             });
         }
-
         // Find user
+        // const user = await prisma.user.findUnique({
+        //     where: { email },
+        //     select: {
+        //         id: true,
+        //         email: true,
+        //         password: true,
+        //         firstName: true,
+        //         lastName: true,
+        //         role: true,
+        //         isEmailVerified: true,
+        //         verificationStatus: true,
+        //         avatarUrl: true
+        //     }
+        // });
+
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { phone }, // CHANGED from email
             select: {
                 id: true,
                 email: true,
+                phone: true,
                 password: true,
                 firstName: true,
                 lastName: true,
                 role: true,
-                isEmailVerified: true,
-                verificationStatus: true,
                 avatarUrl: true
             }
         });
