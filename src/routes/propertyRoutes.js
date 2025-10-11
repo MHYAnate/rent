@@ -7,7 +7,7 @@ import {
     deleteProperty,
     getSimilarProperties
 } from "../controllers/propertyController.js";
-import { authMiddleware, optionalAuthMiddleware } from "../middleware/authMiddleware.js";
+import { authMiddleware, optionalAuthMiddleware, upload } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -17,7 +17,14 @@ router.get("/:id", optionalAuthMiddleware, getPropertyById);
 router.get("/:id/similar", getSimilarProperties);
 
 // Protected routes
-router.post("/", authMiddleware, createProperty);
+// router.post("/", authMiddleware, createProperty);
+router.post(
+    '/',
+    authMiddleware,
+    upload.array('images', 10),
+    createProperty
+  );
+  
 router.put("/:id", authMiddleware, updateProperty);
 router.delete("/:id", authMiddleware, deleteProperty);
 

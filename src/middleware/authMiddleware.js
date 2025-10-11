@@ -1,7 +1,33 @@
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
+import multer from 'multer';
 
 const prisma = new PrismaClient();
+
+
+
+// Configure multer to use memory storage.
+// This is efficient because we don't need to save the file to disk
+// before uploading it to a cloud service like Cloudinary.
+const storage = multer.memoryStorage();
+
+export const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB file size limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload only images.'), false);
+    }
+  },
+});
+
+
+
 
 // Standard auth middleware - requires authentication
 export const authMiddleware = async (req, res, next) => {

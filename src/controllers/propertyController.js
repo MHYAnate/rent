@@ -1,4 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { v2 as cloudinary } from 'cloudinary';
+import streamifier from 'streamifier';
+import dotenv from 'dotenv';
+dotenv.config();
+
+
+
 
 const prisma = new PrismaClient();
 
@@ -136,101 +143,317 @@ export const getAllProperties = async (req, res) => {
 };
 
 // Create a new property
-export const createProperty = async (req, res) => {
-    try {
-        const postedById = req.userId;
-        const {
-            title,
-            description,
-            type,
-            listingType,
-            price,
-            currency = 'NGN',
-            address,
-            city,
-            state,
-            zipCode,
-            latitude,
-            longitude,
-            bedrooms,
-            bathrooms,
-            area,
-            yearBuilt,
-            imageUrls = [],
-            videoUrls = [],
-            amenities = [],
-            isFeatured = false,
-            availableFrom
-        } = req.body;
+// export const createProperty = async (req, res) => {
+//     try {
+//         const postedById = req.userId;
+//         const {
+//             title,
+//             description,
+//             type,
+//             listingType,
+//             price,
+//             currency = 'NGN',
+//             address,
+//             city,
+//             state,
+//             zipCode,
+//             latitude,
+//             longitude,
+//             bedrooms,
+//             bathrooms,
+//             area,
+//             yearBuilt,
+//             imageUrls = [],
+//             videoUrls = [],
+//             amenities = [],
+//             isFeatured = false,
+//             availableFrom
+//         } = req.body;
 
-        // Validation
-        if (!title || !description || !type || !listingType || !price || !address || !city || !state) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields: title, description, type, listingType, price, address, city, state"
-            });
+//         // Validation
+//         if (!title || !description || !type || !listingType || !price || !address || !city || !state) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Missing required fields: title, description, type, listingType, price, address, city, state"
+//             });
+//         }
+
+//         // Check if user is authorized to post properties
+//         const user = await prisma.user.findUnique({ where: { id: postedById } });
+//         if (!user || !['LANDLORD', 'AGENT', 'ADMIN'].includes(user.role)) {
+//             return res.status(403).json({
+//                 success: false,
+//                 message: "Only landlords, agents, and admins can post properties"
+//             });
+//         }
+
+//         const newProperty = await prisma.property.create({
+//             data: {
+//                 title,
+//                 description,
+//                 type,
+//                 listingType,
+//                 price: parseFloat(price),
+//                 currency,
+//                 address,
+//                 city,
+//                 state,
+//                 zipCode,
+//                 latitude: latitude ? parseFloat(latitude) : null,
+//                 longitude: longitude ? parseFloat(longitude) : null,
+//                 bedrooms: bedrooms ? parseInt(bedrooms, 10) : null,
+//                 bathrooms: bathrooms ? parseInt(bathrooms, 10) : null,
+//                 area: area ? parseFloat(area) : null,
+//                 yearBuilt: yearBuilt ? parseInt(yearBuilt, 10) : null,
+//                 imageUrls,
+//                 videoUrls,
+//                 amenities,
+//                 isFeatured: user.role === 'ADMIN' ? isFeatured : false,
+//                 availableFrom: availableFrom ? new Date(availableFrom) : null,
+//                 postedById
+//             },
+//             include: {
+//                 postedBy: {
+//                     select: {
+//                         firstName: true,
+//                         lastName: true,
+//                         avatarUrl: true,
+//                         role: true
+//                     }
+//                 }
+//             }
+//         });
+
+//         res.status(201).json({
+//             success: true,
+//             data: newProperty,
+//             message: "Property created successfully"
+//         });
+
+//     } catch (error) {
+//         console.error("Create Property Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Server error creating property"
+//         });
+//     }
+// };
+
+
+// Configure Cloudinary
+// Ensure your .env file has these variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Helper function to upload files to Cloudinary
+const uploadToCloudinary = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'properties' }, // Optional: organize uploads in a folder
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
         }
-
-        // Check if user is authorized to post properties
-        const user = await prisma.user.findUnique({ where: { id: postedById } });
-        if (!user || !['LANDLORD', 'AGENT', 'ADMIN'].includes(user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: "Only landlords, agents, and admins can post properties"
-            });
-        }
-
-        const newProperty = await prisma.property.create({
-            data: {
-                title,
-                description,
-                type,
-                listingType,
-                price: parseFloat(price),
-                currency,
-                address,
-                city,
-                state,
-                zipCode,
-                latitude: latitude ? parseFloat(latitude) : null,
-                longitude: longitude ? parseFloat(longitude) : null,
-                bedrooms: bedrooms ? parseInt(bedrooms, 10) : null,
-                bathrooms: bathrooms ? parseInt(bathrooms, 10) : null,
-                area: area ? parseFloat(area) : null,
-                yearBuilt: yearBuilt ? parseInt(yearBuilt, 10) : null,
-                imageUrls,
-                videoUrls,
-                amenities,
-                isFeatured: user.role === 'ADMIN' ? isFeatured : false,
-                availableFrom: availableFrom ? new Date(availableFrom) : null,
-                postedById
-            },
-            include: {
-                postedBy: {
-                    select: {
-                        firstName: true,
-                        lastName: true,
-                        avatarUrl: true,
-                        role: true
-                    }
-                }
-            }
-        });
-
-        res.status(201).json({
-            success: true,
-            data: newProperty,
-            message: "Property created successfully"
-        });
-
-    } catch (error) {
-        console.error("Create Property Error:", error);
-        res.status(500).json({
-            success: false,
-            message: "Server error creating property"
-        });
-    }
+      }
+    );
+    streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+  });
 };
+
+// Create a new property with image upload
+// export const createProperty = async (req, res) => {
+//   try {
+//     const postedById = req.userId;
+//     const {
+//         title,
+//         description,
+//         type,
+//         listingType,
+//         price,
+//         currency = 'NGN',
+//         address,
+//         city,
+//         state,
+//         zipCode,
+//         latitude,
+//         longitude,
+//         bedrooms,
+//         bathrooms,
+//         area,
+//         yearBuilt,
+//         amenities = [],
+//         isFeatured = false,
+//         availableFrom
+//     } = req.body;
+
+//     // 1. Validation
+//     if (!title || !description || !type || !listingType || !price || !address || !city || !state) {
+//         return res.status(400).json({
+//             success: false,
+//             message: "Missing required fields."
+//         });
+//     }
+
+//     // 2. Authorization Check
+//     const user = await prisma.user.findUnique({ where: { id: postedById } });
+//     if (!user || !['LANDLORD', 'AGENT', 'ADMIN'].includes(user.role)) {
+//         return res.status(403).json({
+//             success: false,
+//             message: "Only landlords, agents, and admins can post properties"
+//         });
+//     }
+
+//     // 3. Handle Image Uploads to Cloudinary
+//     let imageUrls = [];
+//     if (req.files && req.files.length > 0) {
+//         // Create an array of upload promises
+//         const uploadPromises = req.files.map(file => uploadToCloudinary(file.buffer));
+        
+//         // Wait for all uploads to complete
+//         const uploadResults = await Promise.all(uploadPromises);
+
+//         // Extract the secure URLs
+//         imageUrls = uploadResults.map(result => result.secure_url);
+//     } else {
+//         // Optional: handle case where no images are uploaded
+//         return res.status(400).json({
+//             success: false,
+//             message: "At least one image is required to create a property."
+//         });
+//     }
+
+//     // 4. Create Property in Database
+//     const newProperty = await prisma.property.create({
+//         data: {
+//             title,
+//             description,
+//             type,
+//             listingType,
+//             price: parseFloat(price),
+//             currency,
+//             address,
+//             city,
+//             state,
+//             zipCode,
+//             latitude: latitude ? parseFloat(latitude) : null,
+//             longitude: longitude ? parseFloat(longitude) : null,
+//             bedrooms: bedrooms ? parseInt(bedrooms, 10) : null,
+//             bathrooms: bathrooms ? parseInt(bathrooms, 10) : null,
+//             area: area ? parseFloat(area) : null,
+//             yearBuilt: yearBuilt ? parseInt(yearBuilt, 10) : null,
+//             imageUrls, // Use the URLs from Cloudinary
+//             videoUrls: [], // Handle video uploads similarly if needed
+//             amenities,
+//             isFeatured: user.role === 'ADMIN' ? isFeatured : false,
+//             availableFrom: availableFrom ? new Date(availableFrom) : null,
+//             postedById
+//         },
+//         include: {
+//             postedBy: {
+//                 select: {
+//                     firstName: true,
+//                     lastName: true,
+//                     avatarUrl: true,
+//                     role: true
+//                 }
+//             }
+//         }
+//     });
+
+//     res.status(201).json({
+//         success: true,
+//         data: newProperty,
+//         message: "Property created successfully"
+//     });
+
+//   } catch (error) {
+//     console.error("Create Property Error:", error);
+//     res.status(500).json({
+//         success: false,
+//         message: "Server error creating property"
+//     });
+//   }
+// };
+// in your backend's propertyController.js file
+
+
+export const createProperty = async (req, res) => {
+  try {
+    const postedById = req.userId;
+    const {
+        title, description, type, listingType, price,
+        address, city, state, zipCode,
+        latitude, longitude, bedrooms, bathrooms, area, yearBuilt,
+        amenities = [], isFeatured = false, availableFrom,
+        imageUrls = []
+    } = req.body;
+
+    // --- LOGGING FOR DEBUGGING ---
+    // This is invaluable for seeing exactly what the backend receives
+    console.log('Received payload:', req.body);
+
+    // 1. Validation (remains mostly the same)
+    if (!title || !description || !type || !listingType || !price || !address || !city || !state) {
+        return res.status(400).json({ success: false, message: "Missing required fields." });
+    }
+    if (!imageUrls || imageUrls.length === 0) {
+        return res.status(400).json({ success: false, message: "At least one image is required." });
+    }
+
+    // 2. Authorization (remains the same)
+    const user = await prisma.user.findUnique({ where: { id: postedById } });
+    if (!user || !['LANDLORD', 'AGENT', 'ADMIN'].includes(user.role)) {
+        return res.status(403).json({ success: false, message: "Only landlords, agents, and admins can post." });
+    }
+    
+    // --- Data Formatting for Prisma ---
+    // This is the CRITICAL fix section
+    const dataForPrisma = {
+        title,
+        description,
+        type, // e.g., "APARTMENT" (must match Prisma enum)
+        listingType, // e.g., "FOR_RENT" (must match Prisma enum)
+        price: parseFloat(price), // Prisma's Decimal type accepts a number
+        currency: 'NGN',
+        address, city, state, zipCode,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        bedrooms: bedrooms ? parseInt(bedrooms, 10) : null,
+        bathrooms: bathrooms ? parseInt(bathrooms, 10) : null,
+        area: area ? parseFloat(area) : null,
+        yearBuilt: yearBuilt ? parseInt(yearBuilt, 10) : null,
+        imageUrls,
+        amenities,
+        isFeatured: user.role === 'ADMIN' ? isFeatured : false,
+        // FIX: Convert string to Date object, or null if not provided
+        availableFrom: availableFrom ? new Date(availableFrom) : null,
+        postedById,
+    };
+
+    // 3. Create Property in Database
+    const newProperty = await prisma.property.create({
+        data: dataForPrisma,
+        include: { postedBy: { select: { firstName: true, lastName: true, avatarUrl: true, role: true } } }
+    });
+
+    res.status(201).json({ success: true, data: newProperty, message: "Property created successfully" });
+
+  } catch (error) {
+    // --- More Detailed Error Logging ---
+    console.error("Create Property Error:", error);
+    // Prisma validation errors are often detailed and useful
+    if (error.code === 'P2002' || error.message.includes('validation failed')) {
+      return res.status(400).json({ success: false, message: "Invalid data provided. Please check your inputs.", details: error.message });
+    }
+    res.status(500).json({ success: false, message: "Server error creating property" });
+  }
+};
+
 
 // Get single property by ID with view tracking
 export const getPropertyById = async (req, res) => {
