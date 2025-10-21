@@ -4,24 +4,26 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function seed() {
-  const hashedPassword1 = await bcrypt.hash("adminPassword4", 11); // Replace with your desired password
-  const hashedPassword2 = await bcrypt.hash("adminPassword3", 11);
+  const hashedPassword1 = await bcrypt.hash("12131415161", 11); // Replace with your desired password
+  const hashedPassword2 = await bcrypt.hash("21314151617", 11);
 
   await prisma.user.createMany({
     data: [
       {
-        email: "rentAdmin4@gmail.com",
+        email: "admin@admin.com",
+        phone: "12131415161",
         password: hashedPassword1,
-        firstName: "Admin",
+        firstName: "Admin1",
         lastName: "User",
         role: "ADMIN",
         isEmailVerified: true,
         verificationStatus: "VERIFIED",
       },
       {
-        email: "rentAdmin3@gmail.com",
+        email: "admin@gmail.com",
+        phone: "21314151617",
         password: hashedPassword2,
-        firstName: "Admin",
+        firstName: "Admin2",
         lastName: "User",
         role: "ADMIN",
         isEmailVerified: true,
