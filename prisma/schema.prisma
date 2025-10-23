@@ -23,6 +23,7 @@ enum Role {
   LANDLORD
   AGENT
   ADMIN
+  SUPER_ADMIN
 }
 
 enum VerificationStatus {

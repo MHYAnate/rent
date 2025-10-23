@@ -175,7 +175,9 @@ export const requireRole = (roles) => {
 };
 
 // Admin only middleware
-export const adminOnly = requireRole(['ADMIN']);
+export const adminOnly = requireRole(['ADMIN', 'SUPER_ADMIN']);
+
+export const superAdminOnly = requireRole(['SUPER_ADMIN']);
 
 // Landlord and Agent middleware
 export const landlordOrAgent = requireRole(['LANDLORD', 'AGENT', 'ADMIN']);
