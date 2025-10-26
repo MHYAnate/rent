@@ -18,6 +18,8 @@ export const getAllProperties = async (req, res) => {
             propertyType,
             city,
             state,
+            type,          // 👈 added
+            status, 
             minPrice,
             maxPrice,
             bedrooms,
@@ -32,7 +34,7 @@ export const getAllProperties = async (req, res) => {
         const where = {};
 
         // Only show available properties by default unless user is viewing their own
-        if (!userId) {
+        if (!userId && req.userRole !== 'ADMIN' && req.userRole !== 'SUPER_ADMIN') {
             where.status = 'AVAILABLE';
         } else {
             where.postedById = userId;
@@ -40,6 +42,8 @@ export const getAllProperties = async (req, res) => {
 
         if (listingType) where.listingType = listingType;
         if (propertyType) where.type = propertyType;
+        if (type) where.type = type;          // 👈 fixed
+        if (status) where.status = status;    // 👈 fixed
         if (city) where.city = { contains: city, mode: 'insensitive' };
         if (state) where.state = { contains: state, mode: 'insensitive' };
         if (isFeatured !== undefined) where.isFeatured = isFeatured === 'true';
