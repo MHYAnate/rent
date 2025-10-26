@@ -368,7 +368,10 @@ export const updateProperty = async (req, res) => {
         // Check authorization
         const canUpdate = property.postedById === userId ||
                          property.managedByAgentId === userId ||
-                         userRole === 'ADMIN';
+                         userRole === 'ADMIN'||
+                         userRole === "SUPER_ADMIN";
+                       
+                         
 
         if (!canUpdate) {
             return res.status(403).json({
@@ -380,10 +383,13 @@ export const updateProperty = async (req, res) => {
         const updatedData = { ...req.body };
         
         // Only admins can set featured status
-        if (userRole !== 'ADMIN') {
-            delete updatedData.isFeatured;
-        }
+        // if (userRole !== 'ADMIN' || userRole !== "SUPER_ADMIN") {
+        //     delete updatedData.isFeatured;
+        // }
 
+        if (!['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
+            delete updatedData.isFeatured;
+            }
         // Convert numeric fields
         if (updatedData.price) updatedData.price = parseFloat(updatedData.price);
         if (updatedData.latitude) updatedData.latitude = parseFloat(updatedData.latitude);
@@ -442,7 +448,7 @@ export const deleteProperty = async (req, res) => {
         }
 
         // Check authorization
-        const canDelete = property.postedById === userId || userRole === 'ADMIN';
+        const canDelete = property.postedById === userId || userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
 
         if (!canDelete) {
             return res.status(403).json({

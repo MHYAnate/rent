@@ -1,5 +1,5 @@
 import express from "express";
-import { authMiddleware, adminOnly } from "../middleware/authMiddleware.js";
+import { authMiddleware, adminOnly,superAdminOnly } from "../middleware/authMiddleware.js";
 import {
     getDashboardStats,
     getAllUsers,
@@ -30,7 +30,7 @@ router.get("/dashboard", getDashboardStats);
 router.get("/users", getAllUsers);
 router.get("/users/:id", getUserById);
 router.put("/users/:id", updateUser);
-router.delete("/users/:id", deleteUser);
+router.delete("/users/:id",superAdminOnly, deleteUser);
 
 // --- Verification Management ---
 router.get("/verifications", getVerificationRequests);
@@ -40,7 +40,7 @@ router.put("/verifications/:id/review", reviewVerificationRequest);
 // These routes reuse existing property controllers which already handle the ADMIN role
 router.get("/properties", getAllProperties);
 router.put("/properties/:id", updateProperty);
-router.delete("/properties/:id", deleteProperty);
+router.delete("/properties/:id",superAdminOnly, deleteProperty);
 
 // --- Complaint Management ---
 router.get("/complaints", getAllComplaints);
