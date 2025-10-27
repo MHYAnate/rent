@@ -42,8 +42,8 @@ export const getAllProperties = async (req, res) => {
 
         if (listingType) where.listingType = listingType;
         if (propertyType) where.type = propertyType;
-        if (type) where.type = type;          // 👈 fixed
-        if (status) where.status = status;    // 👈 fixed
+        if (type) where.type = type;          
+        if (status) where.status = status;    
         if (city) where.city = { contains: city, mode: 'insensitive' };
         if (state) where.state = { contains: state, mode: 'insensitive' };
         if (isFeatured !== undefined) where.isFeatured = isFeatured === 'true';
@@ -66,7 +66,8 @@ export const getAllProperties = async (req, res) => {
             where.OR = [
                 { title: { contains: search, mode: 'insensitive' } },
                 { description: { contains: search, mode: 'insensitive' } },
-                { address: { contains: search, mode: 'insensitive' } }
+                { state: { contains: search, mode: 'insensitive' } },
+                { city: { contains: search, mode: 'insensitive' } }
             ];
         }
 
