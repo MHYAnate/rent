@@ -97,26 +97,26 @@ router.post("/register", async (req, res) => {
   const { email, password, firstName, lastName, phone } = req.body;
 
   // Basic validation
-  if (!email || !password || !firstName || !lastName) {
-    return res.status(400).json({ message: "Please provide email, password, first name, and last name." });
+  if (!phone || !password || !firstName || !lastName) {
+    return res.status(400).json({ message: "Please provide phone, password, first name, and last name." });
   }
 
   try {
-    const userExists = await prisma.user.findUnique({ where: { email } });
+    const userExists = await prisma.user.findUnique({ where: { phone } });
     if (userExists) {
-      return res.status(409).json({ message: "Email is already in use." });
+      return res.status(409).json({ message: "phone is already in use." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 11);
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email, // email is optional
         password: hashedPassword,
         firstName,
         lastName,
-        phone, // phone is optional
+        phone,
       },
-      select: { id: true, email: true, firstName: true, role: true } // Don't send the password back
+      select: { id: true, phone: true, firstName: true, role: true } // Don't send the password back
     });
 
     res.status(201).json({ message: "User registered successfully", user: newUser });
@@ -130,16 +130,16 @@ router.post("/register", async (req, res) => {
 // --- 2. User Login ---
 // Now creates a session record in the database as per the schema.
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { phone, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Please provide both email and password." });
+  if (!phone || !password) {
+    return res.status(400).json({ message: "Please provide both phone and password." });
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
-      // Use a generic message to prevent email enumeration
+      // Use a generic message to prevent phone enumeration
       return res.status(401).json({ message: "Invalid credentials." });
     }
 
@@ -173,7 +173,7 @@ router.post("/login", async (req, res) => {
       token,
       user: {
         id: user.id,
-        email: user.email,
+        phone: user.phone,
         firstName: user.firstName,
         role: user.role,
       }
