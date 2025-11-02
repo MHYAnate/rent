@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from 'cloudinary';
 import streamifier from 'streamifier';
 import dotenv from 'dotenv';
+// In your existing backend/controllers/propertyController.js
+import { notifyNewProperty, notifyPropertyUpdate } from './pushController.js';
 dotenv.config();
 
 const prisma = new PrismaClient();
@@ -229,6 +231,11 @@ export const createProperty = async (req, res) => {
         include: { postedBy: { select: { firstName: true, lastName: true, avatarUrl: true, role: true } } }
     });
 
+        // Send push notification about new property (non-blocking)
+        notifyNewProperty(newProperty).catch(error => {
+            console.error('Failed to send new property notification:', error);
+          });
+
     res.status(201).json({ success: true, data: newProperty, message: "Property created successfully" });
 
   } catch (error) {
@@ -418,6 +425,12 @@ export const updateProperty = async (req, res) => {
                 }
             }
         });
+
+            // Send push notification about property update (non-blocking)
+    notifyPropertyUpdate(updatedProperty).catch(error => {
+        console.error('Failed to send property update notification:', error);
+      });
+  
 
         res.status(200).json({
             success: true,

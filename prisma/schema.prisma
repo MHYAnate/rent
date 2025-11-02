@@ -101,11 +101,29 @@ model User {
   agentProfile       AgentProfile?
   // Sessions for authentication
   sessions           Session[]
+    // Push notification subscriptions
+  pushSubscriptions  PushSubscription[]
 
   /// For Agents: list of Landlords they represent
   landlordsRepresented LandlordAgent[] @relation("AgentLink")
   /// For Landlords: list of Agents representing them
   agents               LandlordAgent[] @relation("LandlordLink")
+}
+
+// Add to your existing Prisma schema
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  auth      String
+  p256dh    String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /// Stores sensitive verification information for all user roles.

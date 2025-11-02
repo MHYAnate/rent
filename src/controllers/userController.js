@@ -368,6 +368,14 @@ export const updateProfile = async (req, res) => {
                     message: "Phone number is already in use"
                 });
             }
+                 // Prevent modifications if role is super admin
+        if ( existingUser.role === "super admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Super admin profile cannot be modified"
+            });
+        }
+
         }
 
         const updatedUser = await prisma.user.update({

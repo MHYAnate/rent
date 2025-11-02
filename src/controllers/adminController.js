@@ -640,6 +640,19 @@ export const updateUser = async (req, res) => {
         if (!firstName && !lastName && !role && !verificationStatus) {
             return res.status(400).json({ success: false, message: "No update data provided." });
         }
+                 // Prevent modifications if role is super admin
+        if ( role === "SUPER_ADMIN") {  
+            return res.status(403).json({
+                success: false,
+                message: "Super admin profile cannot be modified"
+            });
+        }
+        if ( role === "SUPER_ADMIN") {  
+            return res.status(403).json({
+                success: false,
+                message: "Super admin profile cannot be modified"
+            });
+        }
 
         const updatedUser = await prisma.user.update({
             where: { id },
