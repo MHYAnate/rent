@@ -163,21 +163,7 @@ export const login = async (req, res) => {
                 message: "Please provide both phone number and password" // CHANGED
             });
         }
-        // Find user
-        // const user = await prisma.user.findUnique({
-        //     where: { email },
-        //     select: {
-        //         id: true,
-        //         email: true,
-        //         password: true,
-        //         firstName: true,
-        //         lastName: true,
-        //         role: true,
-        //         isEmailVerified: true,
-        //         verificationStatus: true,
-        //         avatarUrl: true
-        //     }
-        // });
+
 
         const user = await prisma.user.findUnique({
             where: { phone }, // CHANGED from email

@@ -197,7 +197,7 @@ export const createProperty = async (req, res) => {
 
     // 2. Authorization (remains the same)
     const user = await prisma.user.findUnique({ where: { id: postedById } });
-    if (!user || !['LANDLORD', 'AGENT', 'ADMIN'].includes(user.role)) {
+    if (!user || !['LANDLORD', 'AGENT', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
         return res.status(403).json({ success: false, message: "Only landlords, agents, and admins can post." });
     }
     
@@ -394,10 +394,7 @@ export const updateProperty = async (req, res) => {
 
         const updatedData = { ...req.body };
         
-        // Only admins can set featured status
-        // if (userRole !== 'ADMIN' || userRole !== "SUPER_ADMIN") {
-        //     delete updatedData.isFeatured;
-        // }
+   
 
         if (!['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
             delete updatedData.isFeatured;
