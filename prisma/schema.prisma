@@ -118,6 +118,7 @@ model PushSubscription {
   auth      String
   p256dh    String
   userId    String?
+  userEmail String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   createdAt DateTime @default(now())
