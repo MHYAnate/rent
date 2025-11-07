@@ -4,8 +4,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   broadcastNotification,
-  sendUserNotification,
-  sendNotificationByEmail
+  sendUserNotification
 } from '../controllers/pushController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
@@ -18,6 +17,5 @@ router.post('/unsubscribe', unsubscribeFromPush);
 // Protected routes - require authentication
 router.post('/broadcast', authMiddleware, broadcastNotification);
 router.post('/send-user', authMiddleware, sendUserNotification);
-router.post('/send-by-email', authMiddleware, sendNotificationByEmail);
 
 export default router;
