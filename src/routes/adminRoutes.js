@@ -10,12 +10,15 @@ import {
     reviewVerificationRequest,
     getAllComplaints,
     updateComplaint,
+    getComplaintStats,
 } from "../controllers/adminController.js";
 import { 
     getAllProperties, 
     updateProperty,
     deleteProperty
 } from "../controllers/propertyController.js";
+
+
 
 const router = express.Router();
 
@@ -43,8 +46,10 @@ router.put("/properties/:id", updateProperty);
 router.delete("/properties/:id",superAdminOnly, deleteProperty);
 
 // --- Complaint Management ---
+// Add to admin routes
 router.get("/complaints", getAllComplaints);
 router.put("/complaints/:id", updateComplaint);
+router.get("/complaints/stats", getComplaintStats);
 
 
 export default router;

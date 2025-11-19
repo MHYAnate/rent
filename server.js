@@ -11,6 +11,7 @@ import favoriteRoutes from "./src/routes/favoriteRoutes.js";
 import ratingRoutes from "./src/routes/ratingRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import pushRoutes from './src/routes/pushRoutes.js';
+import complaintRoutes from './src/routes/complaintRoutes.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/push', pushRoutes);
+app.use("/api/complaints", complaintRoutes);
 
 // Health check
 app.get("/", (req, res) => {

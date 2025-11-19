@@ -594,11 +594,7 @@ export const getAllUsers = async (req, res) => {
     }
 };
 
-/**
- * @desc    Get a single user by ID
- * @route   GET /api/admin/users/:id
- * @access  Private (Admin)
- */
+
 export const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -826,17 +822,46 @@ export const reviewVerificationRequest = async (req, res) => {
 
 // --- Complaint Management ---
 
-/**
- * @desc    Get all complaints
- * @route   GET /api/admin/complaints
- * @access  Private (Admin)
- */
+
 export const getAllComplaints = async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', status } = req.query;
+        const { 
+            page = 1, 
+            limit = 10, 
+            sortBy = 'createdAt', 
+            sortOrder = 'desc', 
+            status,
+            search 
+        } = req.query;
 
         const where = {};
-        if (status) where.status = status;
+
+        // Handle status filter
+        if (status && status !== 'ALL') {
+            where.status = status;
+        }
+
+        // Handle search filter - search in subject and client fields
+        if (search && search.trim()) {
+            const searchTerm = search.trim();
+            where.OR = [
+                { 
+                    subject: { 
+                        contains: searchTerm, 
+                        mode: 'insensitive' 
+                    } 
+                },
+                { 
+                    client: {
+                        OR: [
+                            { firstName: { contains: searchTerm, mode: 'insensitive' } },
+                            { lastName: { contains: searchTerm, mode: 'insensitive' } },
+                            { email: { contains: searchTerm, mode: 'insensitive' } }
+                        ]
+                    }
+                }
+            ];
+        }
 
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const take = parseInt(limit, 10);
@@ -850,17 +875,28 @@ export const getAllComplaints = async (req, res) => {
                 orderBy,
                 include: {
                     client: {
-                        select: { id: true, firstName: true, lastName: true, email: true }
+                        select: { 
+                            id: true, 
+                            firstName: true, 
+                            lastName: true, 
+                            email: true,
+                            phone: true 
+                        }
                     },
                     property: {
-                        select: { id: true, title: true }
+                        select: { 
+                            id: true, 
+                            title: true,
+                            city: true,
+                            state: true
+                        }
                     }
                 }
             }),
             prisma.complaint.count({ where })
         ]);
 
-         res.status(200).json({
+        res.status(200).json({
             success: true,
             data: complaints,
             pagination: {
@@ -873,7 +909,11 @@ export const getAllComplaints = async (req, res) => {
 
     } catch (error) {
         console.error("Get All Complaints Error:", error);
-        res.status(500).json({ success: false, message: "Server error fetching complaints" });
+        res.status(500).json({ 
+            success: false, 
+            message: "Server error fetching complaints",
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };
 
@@ -921,6 +961,7 @@ export const updateComplaint = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error updating complaint" });
     }
 };
+
 
 // Get paginated users for admin table
 export const getUsersForAdmin = async (req, res) => {
@@ -1031,4 +1072,248 @@ export const getPropertiesForAdmin = async (req, res) => {
         console.error("Get Properties Error:", error);
         res.status(500).json({ success: false, message: "Server error fetching properties" });
     }
+};
+
+
+/**
+ * @desc    Get comprehensive complaint statistics for admin dashboard
+ * @route   GET /api/admin/complaints/stats
+ * @access  Private (Admin)
+ */
+export const getComplaintStats = async (req, res) => {
+  try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+      // Define all possible complaint statuses
+      const ALL_COMPLAINT_STATUS = ['PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
+
+      // Fetch all complaint statistics in parallel
+      const [
+          totalComplaints,
+          complaintsByStatus,
+          complaintsByPeriod,
+          recentComplaintsTrend,
+          complaintsWithProperties,
+          topComplainedProperties,
+          averageResolutionTime,
+          complaintResolutionRate
+      ] = await Promise.all([
+          // Total complaints count
+          prisma.complaint.count().catch(() => 0),
+
+          // Complaints grouped by status
+          prisma.complaint.groupBy({
+              by: ['status'],
+              _count: { status: true },
+          }).catch(() => []),
+
+          // Complaints by time period
+          Promise.all([
+              // Last 7 days
+              prisma.complaint.count({
+                  where: {
+                      createdAt: {
+                          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                      }
+                  }
+              }).catch(() => 0),
+              // Last 30 days
+              prisma.complaint.count({
+                  where: {
+                      createdAt: {
+                          gte: thirtyDaysAgo
+                      }
+                  }
+              }).catch(() => 0),
+              // Previous 30 days (for comparison)
+              prisma.complaint.count({
+                  where: {
+                      createdAt: {
+                          gte: sixtyDaysAgo,
+                          lt: thirtyDaysAgo
+                      }
+                  }
+              }).catch(() => 0)
+          ]),
+
+          // Recent complaints trend (last 30 days)
+          prisma.complaint.findMany({
+              where: {
+                  createdAt: {
+                      gte: thirtyDaysAgo
+                  }
+              },
+              select: {
+                  createdAt: true,
+                  status: true
+              }
+          }).then(complaints => {
+              const trends = {};
+              complaints.forEach(complaint => {
+                  const date = complaint.createdAt.toISOString().split('T')[0];
+                  if (!trends[date]) {
+                      trends[date] = { total: 0, byStatus: {} };
+                  }
+                  trends[date].total++;
+                  trends[date].byStatus[complaint.status] = (trends[date].byStatus[complaint.status] || 0) + 1;
+              });
+              return Object.entries(trends).map(([date, data]) => ({
+                  date,
+                  total: data.total,
+                  byStatus: data.byStatus
+              })).sort((a, b) => a.date.localeCompare(b.date));
+          }).catch(() => []),
+
+          // Complaints with property association
+          prisma.complaint.groupBy({
+              by: ['propertyId'],
+              where: {
+                  propertyId: { not: null }
+              },
+              _count: { propertyId: true },
+          }).then(results => {
+              const withProperty = results.filter(r => r.propertyId).length;
+              const withoutProperty = results.filter(r => !r.propertyId).length;
+              return { withProperty, withoutProperty };
+          }).catch(() => ({ withProperty: 0, withoutProperty: 0 })),
+
+          // Top complained properties
+          prisma.complaint.groupBy({
+              by: ['propertyId'],
+              where: {
+                  propertyId: { not: null }
+              },
+              _count: { propertyId: true },
+              orderBy: {
+                  _count: {
+                      propertyId: 'desc'
+                  }
+              },
+              take: 10
+          }).then(async results => {
+              const propertyDetails = await Promise.all(
+                  results.map(async (item) => {
+                      const property = await prisma.property.findUnique({
+                          where: { id: item.propertyId },
+                          select: {
+                              id: true,
+                              title: true,
+                              city: true,
+                              state: true,
+                              postedBy: {
+                                  select: {
+                                      firstName: true,
+                                      lastName: true
+                                  }
+                              }
+                          }
+                      }).catch(() => null);
+                      
+                      return {
+                          propertyId: item.propertyId,
+                          complaintCount: item._count.propertyId,
+                          property: property || { title: 'Unknown Property' }
+                      };
+                  })
+              );
+              return propertyDetails.filter(item => item.property);
+          }).catch(() => []),
+
+          // Average resolution time for resolved complaints
+          prisma.complaint.findMany({
+              where: {
+                  status: 'RESOLVED',
+                  resolvedAt: { not: null },
+                  createdAt: { not: null }
+              },
+              select: {
+                  createdAt: true,
+                  resolvedAt: true
+              }
+          }).then(complaints => {
+              if (complaints.length === 0) return 0;
+              
+              const totalResolutionTime = complaints.reduce((total, complaint) => {
+                  const resolutionTime = complaint.resolvedAt - complaint.createdAt;
+                  return total + resolutionTime;
+              }, 0);
+              
+              return Math.round(totalResolutionTime / complaints.length / (1000 * 60 * 60 * 24)); // Convert to days
+          }).catch(() => 0),
+
+          // Complaint resolution rate
+          prisma.complaint.groupBy({
+              by: ['status'],
+              _count: { status: true },
+          }).then(results => {
+              const total = results.reduce((sum, item) => sum + item._count.status, 0);
+              const resolved = results.find(item => item.status === 'RESOLVED')?._count.status || 0;
+              return total > 0 ? Math.round((resolved / total) * 100) : 0;
+          }).catch(() => 0)
+      ]);
+
+      // Process complaints by status with all possible statuses
+      const statusCounts = {};
+      ALL_COMPLAINT_STATUS.forEach(status => {
+          statusCounts[status] = 0;
+      });
+
+      complaintsByStatus.forEach(item => {
+          if (item.status && statusCounts.hasOwnProperty(item.status)) {
+              statusCounts[item.status] = item._count.status;
+          }
+      });
+
+      // Calculate period comparisons
+      const [last7Days, last30Days, previous30Days] = complaintsByPeriod;
+      const thirtyDayChange = previous30Days > 0 
+          ? Math.round(((last30Days - previous30Days) / previous30Days) * 100)
+          : 0;
+
+      // Prepare response data
+      const statsData = {
+          overview: {
+              total: totalComplaints,
+              pending: statusCounts.PENDING,
+              inReview: statusCounts.IN_REVIEW,
+              resolved: statusCounts.RESOLVED,
+              rejected: statusCounts.REJECTED
+          },
+          trends: {
+              last7Days,
+              last30Days,
+              previous30Days,
+              thirtyDayChange,
+              dailyTrends: recentComplaintsTrend
+          },
+          analysis: {
+              resolutionRate: complaintResolutionRate,
+              averageResolutionDays: averageResolutionTime,
+              withProperty: complaintsWithProperties.withProperty,
+              withoutProperty: complaintsWithProperties.withoutProperty,
+              propertyAssociationRate: totalComplaints > 0 
+                  ? Math.round((complaintsWithProperties.withProperty / totalComplaints) * 100)
+                  : 0
+          },
+          topComplainedProperties: topComplainedProperties,
+          statusDistribution: statusCounts
+      };
+
+      res.status(200).json({
+          success: true,
+          data: statsData
+      });
+
+  } catch (error) {
+      console.error("Get Complaint Stats Error:", error);
+      res.status(500).json({
+          success: false,
+          message: "Server error fetching complaint statistics",
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+  }
 };
